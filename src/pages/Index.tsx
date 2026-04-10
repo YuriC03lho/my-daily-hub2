@@ -1,8 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BookOpen, ShoppingCart, Calendar, Clock, Heart, User } from "lucide-react";
+import { BookOpen, ShoppingCart, Calendar, Clock, Heart, User, Download, Upload } from "lucide-react";
 import { useRef, useCallback, useState } from "react";
 import SecretAccessDialog from "@/components/SecretAccessDialog";
+import { exportAllData, importAllData, loadData, saveData, KEYS } from "@/lib/storage";
+import { toast } from "sonner";
+import { useEffect } from "react";
 
 const cards = [
   { title: "Anotações", subtitle: "Seus registros pessoais", icon: BookOpen, path: "/diary", bg: "bg-teal-50", iconBg: "bg-teal-100", iconColor: "text-teal-600" },
@@ -16,9 +19,9 @@ const Index = () => {
   const tapCount = useRef(0);
   const tapTimer = useRef<ReturnType<typeof setTimeout>>();
   const [showSecret, setShowSecret] = useState(false);
+  const lastUpdate = loadData<string>(KEYS.LAST_UPDATE, "").split('T')[0]?.split('-').reverse().join('/') || "—";
 
-  const handleBackgroundTap = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget) return;
+  const handleTripleTap = useCallback(() => {
     tapCount.current += 1;
     if (tapTimer.current) clearTimeout(tapTimer.current);
     if (tapCount.current >= 3) {
@@ -26,23 +29,62 @@ const Index = () => {
       setShowSecret(true);
       return;
     }
-    tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 600);
+    tapTimer.current = setTimeout(() => { tapCount.current = 0; }, 800);
   }, []);
 
+  const handleExport = () => {
+    const data = exportAllData();
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `meu-espaco-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Backup exportado com sucesso!");
+  };
+
+  const handleImport = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const ok = importAllData(ev.target?.result as string);
+        if (ok) {
+          saveData(KEYS.LAST_UPDATE, new Date().toISOString());
+          toast.success("Dados restaurados! Recarregando...");
+          setTimeout(() => window.location.reload(), 1000);
+        } else {
+          toast.error("Arquivo inválido");
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
   return (
-    <div
-      className="min-h-screen flex flex-col safe-bottom"
-      onClick={handleBackgroundTap}
-    >
-      {/* Header banner */}
-      <div className="bg-gradient-to-br from-teal-500 to-teal-600 px-5 pt-12 pb-8 rounded-b-3xl shadow-lg shadow-teal-500/10">
-        <div className="flex items-center gap-3 mb-1">
+    <div className="min-h-screen flex flex-col safe-bottom">
+      {/* Header banner - triple tap area */}
+      <div
+        className="bg-gradient-to-br from-teal-500 to-teal-600 px-5 pt-12 pb-8 rounded-b-3xl shadow-lg shadow-teal-500/10"
+        onClick={handleTripleTap}
+        onTouchStart={handleTripleTap}
+      >
+        <div className="flex items-center gap-3 mb-1 pointer-events-none">
           <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
             <User className="w-5 h-5 text-white" />
           </div>
           <div>
             <h1 className="text-lg font-bold text-white tracking-tight">Meu Espaço</h1>
             <p className="text-teal-100 text-xs">Seu hub pessoal de bem-estar</p>
+            {lastUpdate !== "—" && (
+              <p className="text-[10px] text-teal-200/80 mt-1">Atualizado em: {lastUpdate}</p>
+            )}
           </div>
         </div>
       </div>
@@ -80,6 +122,16 @@ const Index = () => {
             <p className="text-sm font-medium">Cuide de você</p>
             <p className="text-xs text-muted-foreground">Organize sua rotina e bem-estar</p>
           </div>
+        </div>
+
+        {/* Backup buttons */}
+        <div className="mt-3 flex gap-2">
+          <button onClick={handleExport} className="flex-1 bg-card border border-border rounded-2xl p-3 flex items-center justify-center gap-2 text-sm text-muted-foreground active:bg-secondary">
+            <Download className="w-4 h-4" /> Exportar Backup
+          </button>
+          <button onClick={handleImport} className="flex-1 bg-card border border-border rounded-2xl p-3 flex items-center justify-center gap-2 text-sm text-muted-foreground active:bg-secondary">
+            <Upload className="w-4 h-4" /> Restaurar Backup
+          </button>
         </div>
       </div>
 

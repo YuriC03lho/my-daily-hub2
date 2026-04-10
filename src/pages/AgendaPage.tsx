@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, Edit2, X, Check } from "lucide-react";
+import { Plus, Trash2, Edit2, X, Check, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +11,9 @@ const AgendaPage = () => {
   const [items, setItems] = useState<AgendaItem[]>(() => loadData(KEYS.AGENDA, []));
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<AgendaItem | null>(null);
+  const [search, setSearch] = useState("");
+  const [filterMonth, setFilterMonth] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "done">("all");
 
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -42,11 +45,36 @@ const AgendaPage = () => {
 
   const toggleComplete = (id: string) => save(items.map(it => it.id === id ? { ...it, completed: !it.completed } : it));
 
+  const filtered = useMemo(() => {
+    let list = items;
+    if (search) list = list.filter(i => i.title.toLowerCase().includes(search.toLowerCase()));
+    if (filterMonth) list = list.filter(i => i.date.slice(0, 7) === filterMonth);
+    if (filterStatus === "pending") list = list.filter(i => !i.completed);
+    if (filterStatus === "done") list = list.filter(i => i.completed);
+    return list;
+  }, [items, search, filterMonth, filterStatus]);
+
   const fmtDate = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", weekday: "short" });
 
   return (
     <div className="min-h-screen px-5 pt-14 pb-8 safe-bottom">
       <PageHeader title="Agenda" />
+
+      {/* Filters */}
+      <div className="flex gap-2 mb-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input placeholder="Buscar compromisso" value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        <Input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="w-36" />
+      </div>
+      <div className="flex gap-2 mb-3">
+        {(["all", "pending", "done"] as const).map(f => (
+          <button key={f} onClick={() => setFilterStatus(f)} className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${filterStatus === f ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"}`}>
+            {f === "all" ? "Todos" : f === "pending" ? "Pendentes" : "Concluídos"}
+          </button>
+        ))}
+      </div>
 
       <AnimatePresence>
         {showForm && (
@@ -73,7 +101,7 @@ const AgendaPage = () => {
       )}
 
       <div className="flex flex-col gap-3">
-        {items.map((item, i) => (
+        {filtered.map((item, i) => (
           <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} className={`bg-card border border-border rounded-2xl p-4 ${item.completed ? "opacity-50" : ""}`}>
             <div className="flex items-start gap-3">
               <button onClick={() => toggleComplete(item.id)} className={`mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${item.completed ? "bg-primary border-primary" : "border-muted-foreground"}`}>
@@ -91,7 +119,7 @@ const AgendaPage = () => {
             </div>
           </motion.div>
         ))}
-        {items.length === 0 && <p className="text-center text-muted-foreground text-sm mt-8">Nenhum compromisso na agenda</p>}
+        {filtered.length === 0 && <p className="text-center text-muted-foreground text-sm mt-8">Nenhum compromisso encontrado</p>}
       </div>
     </div>
   );

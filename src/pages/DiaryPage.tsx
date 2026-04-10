@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, Edit2, X } from "lucide-react";
+import { Plus, Trash2, Edit2, X, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +14,8 @@ const DiaryPage = () => {
   const [viewEntry, setViewEntry] = useState<DiaryEntry | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [search, setSearch] = useState("");
+  const [filterMonth, setFilterMonth] = useState("");
 
   const save = (list: DiaryEntry[]) => { setEntries(list); saveData(KEYS.DIARY, list); };
 
@@ -39,6 +41,13 @@ const DiaryPage = () => {
 
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 
+  const filtered = useMemo(() => {
+    let list = entries;
+    if (search) list = list.filter(e => e.title.toLowerCase().includes(search.toLowerCase()) || e.description.toLowerCase().includes(search.toLowerCase()));
+    if (filterMonth) list = list.filter(e => e.createdAt.slice(0, 7) === filterMonth);
+    return list;
+  }, [entries, search, filterMonth]);
+
   if (viewEntry) {
     return (
       <div className="min-h-screen px-5 pt-14 pb-8 safe-bottom">
@@ -61,6 +70,15 @@ const DiaryPage = () => {
     <div className="min-h-screen px-5 pt-14 pb-8 safe-bottom">
       <PageHeader title="Anotações" />
 
+      {/* Filters */}
+      <div className="flex gap-2 mb-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input placeholder="Buscar anotação" value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        <Input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="w-36" />
+      </div>
+
       <AnimatePresence>
         {showForm && (
           <motion.form initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} onSubmit={handleSubmit} className="bg-card border border-border rounded-2xl p-4 mb-4 flex flex-col gap-3 overflow-hidden">
@@ -82,7 +100,7 @@ const DiaryPage = () => {
       )}
 
       <div className="flex flex-col gap-3">
-        {entries.map((entry, i) => (
+        {filtered.map((entry, i) => (
           <motion.button
             key={entry.id}
             initial={{ opacity: 0, y: 10 }}
@@ -97,7 +115,7 @@ const DiaryPage = () => {
             <p className="text-muted-foreground text-[11px]">{fmtDate(entry.createdAt)}</p>
           </motion.button>
         ))}
-        {entries.length === 0 && <p className="text-center text-muted-foreground text-sm mt-8">Nenhuma anotação ainda</p>}
+        {filtered.length === 0 && <p className="text-center text-muted-foreground text-sm mt-8">Nenhuma anotação encontrada</p>}
       </div>
     </div>
   );

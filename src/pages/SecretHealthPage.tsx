@@ -12,6 +12,7 @@ const TYPES: { value: HealthRecord["type"]; label: string }[] = [
   { value: "normal", label: "Normal" },
   { value: "dor", label: "Dor" },
   { value: "observacao", label: "Observação" },
+  { value: "caguei", label: "💩 Caguei" },
   { value: "outro", label: "Outro" },
 ];
 
@@ -25,28 +26,37 @@ const SecretHealthPage = () => {
   const [type, setType] = useState<HealthRecord["type"]>("normal");
   const [text, setText] = useState("");
   const [intensity, setIntensity] = useState(0);
+  const [bleeding, setBleeding] = useState(false);
 
   const save = (list: HealthRecord[]) => { setRecords(list); saveData(KEYS.HEALTH, list); };
 
-  const resetForm = () => { setShowForm(false); setEditing(null); setType("normal"); setText(""); setIntensity(0); };
+  const resetForm = () => { setShowForm(false); setEditing(null); setType("normal"); setText(""); setIntensity(0); setBleeding(false); };
 
   const startEdit = (r: HealthRecord) => {
-    setEditing(r); setType(r.type); setText(r.text); setIntensity(r.intensity); setShowForm(true);
+    setEditing(r); setType(r.type); setText(r.text); setIntensity(r.intensity); setBleeding(!!r.bleeding); setShowForm(true);
   };
+
+  const typeLabel = (t: string) => TYPES.find(x => x.value === t)?.label || t;
+  const fmtDate = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const now = new Date();
+    const nowIso = now.toISOString();
+    let newList: HealthRecord[];
     if (editing) {
-      save(records.map(r => r.id === editing.id ? { ...r, type, text, intensity } : r));
+      newList = records.map(r => r.id === editing.id ? { ...r, type, text, intensity, bleeding: type === 'caguei' ? bleeding : false } : r);
     } else {
-      save([{
+      newList = [{
         id: generateId(), type, text, intensity,
+        bleeding: type === 'caguei' ? bleeding : false,
         date: now.toISOString().slice(0, 10),
         time: now.toTimeString().slice(0, 5),
-        createdAt: now.toISOString(),
-      }, ...records]);
+        createdAt: nowIso,
+      }, ...records];
     }
+    save(newList);
+    saveData(KEYS.LAST_UPDATE, nowIso);
     resetForm();
   };
 
@@ -57,12 +67,23 @@ const SecretHealthPage = () => {
     return list;
   }, [records, search, filterDate]);
 
-  const typeLabel = (t: string) => TYPES.find(x => x.value === t)?.label || t;
-  const fmtDate = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  const lastPoop = useMemo(() => {
+    return records.find(r => r.type === "caguei");
+  }, [records]);
 
   return (
     <div className="min-h-screen px-5 pt-14 pb-8 safe-bottom">
       <PageHeader title="Registros" />
+
+      {lastPoop && (
+        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-amber-600 font-bold mb-0.5">Última vez que caguei</p>
+            <p className="text-sm font-semibold text-amber-900">{fmtDate(lastPoop.date)} às {lastPoop.time}</p>
+          </div>
+          <div className="text-2xl">💩</div>
+        </div>
+      )}
 
       <div className="flex gap-2 mb-3">
         <div className="relative flex-1">
@@ -84,6 +105,12 @@ const SecretHealthPage = () => {
               <SelectContent>{TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
             </Select>
             <Textarea placeholder="Descrição" value={text} onChange={e => setText(e.target.value)} rows={3} />
+            {type === "caguei" && (
+              <div className="flex items-center gap-2 py-1">
+                <input type="checkbox" id="bleeding" checked={bleeding} onChange={e => setBleeding(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
+                <label htmlFor="bleeding" className="text-sm font-medium">Teve sangramento?</label>
+              </div>
+            )}
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Intensidade (opcional): {intensity || "—"}</label>
               <div className="flex gap-2">
@@ -112,6 +139,7 @@ const SecretHealthPage = () => {
               <div>
                 <span className="text-xs font-medium text-primary">{typeLabel(rec.type)}</span>
                 {rec.intensity > 0 && <span className="text-xs text-muted-foreground ml-2">Intensidade: {rec.intensity}</span>}
+                {rec.bleeding && <span className="text-xs text-red-500 font-bold ml-2">⚠️ Sangramento</span>}
               </div>
               <span className="text-[11px] text-muted-foreground">{fmtDate(rec.date)} · {rec.time}</span>
             </div>
