@@ -11,9 +11,6 @@ import { loadData, saveData, generateId, HealthRecord, KEYS } from "@/lib/storag
 const TYPES: { value: HealthRecord["type"]; label: string }[] = [
   { value: "normal", label: "Normal" },
   { value: "dor", label: "Dor" },
-  { value: "observacao", label: "Observação" },
-  { value: "caguei", label: "💩 Caguei" },
-  { value: "outro", label: "Outro" },
 ];
 
 const SecretHealthPage = () => {
@@ -45,11 +42,11 @@ const SecretHealthPage = () => {
     const nowIso = now.toISOString();
     let newList: HealthRecord[];
     if (editing) {
-      newList = records.map(r => r.id === editing.id ? { ...r, type, text, intensity, bleeding: type === 'caguei' ? bleeding : false } : r);
+      newList = records.map(r => r.id === editing.id ? { ...r, type, text, intensity, bleeding } : r);
     } else {
       newList = [{
         id: generateId(), type, text, intensity,
-        bleeding: type === 'caguei' ? bleeding : false,
+        bleeding,
         date: now.toISOString().slice(0, 10),
         time: now.toTimeString().slice(0, 5),
         createdAt: nowIso,
@@ -67,23 +64,9 @@ const SecretHealthPage = () => {
     return list;
   }, [records, search, filterDate]);
 
-  const lastPoop = useMemo(() => {
-    return records.find(r => r.type === "caguei");
-  }, [records]);
-
   return (
     <div className="min-h-screen px-5 pt-14 pb-8 safe-bottom">
       <PageHeader title="Registros" />
-
-      {lastPoop && (
-        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-4 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-amber-600 font-bold mb-0.5">Última vez que caguei</p>
-            <p className="text-sm font-semibold text-amber-900">{fmtDate(lastPoop.date)} às {lastPoop.time}</p>
-          </div>
-          <div className="text-2xl">💩</div>
-        </div>
-      )}
 
       <div className="flex gap-2 mb-3">
         <div className="relative flex-1">
@@ -105,12 +88,10 @@ const SecretHealthPage = () => {
               <SelectContent>{TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
             </Select>
             <Textarea placeholder="Descrição" value={text} onChange={e => setText(e.target.value)} rows={3} />
-            {type === "caguei" && (
-              <div className="flex items-center gap-2 py-1">
-                <input type="checkbox" id="bleeding" checked={bleeding} onChange={e => setBleeding(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
-                <label htmlFor="bleeding" className="text-sm font-medium">Teve sangramento?</label>
-              </div>
-            )}
+            <div className="flex items-center gap-2 py-1">
+              <input type="checkbox" id="bleeding" checked={bleeding} onChange={e => setBleeding(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
+              <label htmlFor="bleeding" className="text-sm font-medium">Teve sangramento?</label>
+            </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Intensidade (opcional): {intensity || "—"}</label>
               <div className="flex gap-2">

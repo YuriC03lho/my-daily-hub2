@@ -21,6 +21,7 @@ const ShoppingPage = () => {
   const [filterPaid, setFilterPaid] = useState<"all" | "paid" | "unpaid">("all");
   const [salary, setSalary] = useState<number>(() => loadData(KEYS.SALARY, 1666));
   const [vacation, setVacation] = useState<number>(() => loadData(KEYS.VACATION, 0));
+  const [extra, setExtra] = useState<number>(() => loadData(KEYS.EXTRA, 0));
   const [showSalary, setShowSalary] = useState(false);
 
   // form
@@ -67,7 +68,7 @@ const ShoppingPage = () => {
     return list;
   }, [items, search, filterMonth, filterPaid]);
 
-  const totalIncome = salary + vacation;
+  const totalIncome = salary + vacation + extra;
   const totalUnpaid = useMemo(() => filtered.filter(i => !i.paid).reduce((s, i) => s + i.value, 0), [filtered]);
   const totalPaid = useMemo(() => filtered.filter(i => i.paid).reduce((s, i) => s + i.value, 0), [filtered]);
   const totalAll = totalPaid + totalUnpaid;
@@ -89,6 +90,13 @@ const ShoppingPage = () => {
     const n = parseFloat(v) || 0;
     setVacation(n);
     saveData(KEYS.VACATION, n);
+    saveData(KEYS.LAST_UPDATE, new Date().toISOString());
+  };
+
+  const saveExtra = (v: string) => {
+    const n = parseFloat(v) || 0;
+    setExtra(n);
+    saveData(KEYS.EXTRA, n);
     saveData(KEYS.LAST_UPDATE, new Date().toISOString());
   };
 
@@ -147,7 +155,7 @@ const ShoppingPage = () => {
           </button>
           <div className="text-right">
             <span className="block font-bold text-sm text-teal-600">R$ {totalIncome.toFixed(2)}</span>
-            {vacation > 0 && <span className="text-[10px] text-muted-foreground font-normal">Salário + Férias</span>}
+            {(vacation > 0 || extra > 0) && <span className="text-[10px] text-muted-foreground font-normal">Soma total dos rendimentos</span>}
           </div>
         </div>
         {showSalary && (
@@ -159,6 +167,10 @@ const ShoppingPage = () => {
             <div>
               <label className="text-[10px] text-muted-foreground uppercase ml-1">Férias</label>
               <Input type="number" step="0.01" value={vacation} onChange={e => saveVacation(e.target.value)} placeholder="Valor Férias" />
+            </div>
+            <div>
+              <label className="text-[10px] text-muted-foreground uppercase ml-1">Outros / Extra</label>
+              <Input type="number" step="0.01" value={extra} onChange={e => saveExtra(e.target.value)} placeholder="Outros ganhos" />
             </div>
           </div>
         )}

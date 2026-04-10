@@ -65,6 +65,7 @@ export const KEYS = {
   HEALTH: '__sys_cache_v2',
   SALARY: 'hub_salary',
   VACATION: 'hub_vacation',
+  EXTRA: 'hub_extra',
   LAST_UPDATE: 'hub_last_update',
 };
 
@@ -77,6 +78,7 @@ export function exportAllData(): string {
     health: loadData(KEYS.HEALTH, []),
     salary: loadData(KEYS.SALARY, 0),
     vacation: loadData(KEYS.VACATION, 0),
+    extra: loadData(KEYS.EXTRA, 0),
     lastUpdate: loadData(KEYS.LAST_UPDATE, ''),
   };
   return JSON.stringify(data, null, 2);
@@ -92,6 +94,7 @@ export function importAllData(json: string): boolean {
     if (data.health) saveData(KEYS.HEALTH, data.health);
     if (data.salary !== undefined) saveData(KEYS.SALARY, data.salary);
     if (data.vacation !== undefined) saveData(KEYS.VACATION, data.vacation);
+    if (data.extra !== undefined) saveData(KEYS.EXTRA, data.extra);
     if (data.lastUpdate) saveData(KEYS.LAST_UPDATE, data.lastUpdate);
     return true;
   } catch {
