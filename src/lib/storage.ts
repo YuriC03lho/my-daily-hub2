@@ -55,6 +55,7 @@ export interface HealthRecord {
   text: string;
   intensity: number;
   bleeding?: boolean;
+  dry?: boolean;
   createdAt: string;
 }
 

@@ -24,13 +24,14 @@ const SecretHealthPage = () => {
   const [text, setText] = useState("");
   const [intensity, setIntensity] = useState(0);
   const [bleeding, setBleeding] = useState(false);
+  const [dry, setDry] = useState(false);
 
   const save = (list: HealthRecord[]) => { setRecords(list); saveData(KEYS.HEALTH, list); };
 
-  const resetForm = () => { setShowForm(false); setEditing(null); setType("normal"); setText(""); setIntensity(0); setBleeding(false); };
+  const resetForm = () => { setShowForm(false); setEditing(null); setType("normal"); setText(""); setIntensity(0); setBleeding(false); setDry(false); };
 
   const startEdit = (r: HealthRecord) => {
-    setEditing(r); setType(r.type); setText(r.text); setIntensity(r.intensity); setBleeding(!!r.bleeding); setShowForm(true);
+    setEditing(r); setType(r.type); setText(r.text); setIntensity(r.intensity); setBleeding(!!r.bleeding); setDry(!!r.dry); setShowForm(true);
   };
 
   const typeLabel = (t: string) => TYPES.find(x => x.value === t)?.label || t;
@@ -42,11 +43,11 @@ const SecretHealthPage = () => {
     const nowIso = now.toISOString();
     let newList: HealthRecord[];
     if (editing) {
-      newList = records.map(r => r.id === editing.id ? { ...r, type, text, intensity, bleeding } : r);
+      newList = records.map(r => r.id === editing.id ? { ...r, type, text, intensity, bleeding, dry } : r);
     } else {
       newList = [{
         id: generateId(), type, text, intensity,
-        bleeding,
+        bleeding, dry,
         date: now.toISOString().slice(0, 10),
         time: now.toTimeString().slice(0, 5),
         createdAt: nowIso,
@@ -88,9 +89,15 @@ const SecretHealthPage = () => {
               <SelectContent>{TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
             </Select>
             <Textarea placeholder="Descrição" value={text} onChange={e => setText(e.target.value)} rows={3} />
-            <div className="flex items-center gap-2 py-1">
-              <input type="checkbox" id="bleeding" checked={bleeding} onChange={e => setBleeding(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
-              <label htmlFor="bleeding" className="text-sm font-medium">Teve sangramento?</label>
+            <div className="flex flex-col gap-2 py-1">
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="bleeding" checked={bleeding} onChange={e => setBleeding(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
+                <label htmlFor="bleeding" className="text-sm font-medium">Teve sangramento?</label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="dry" checked={dry} onChange={e => setDry(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500" />
+                <label htmlFor="dry" className="text-sm font-medium">Saiu Seco?</label>
+              </div>
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Intensidade (opcional): {intensity || "—"}</label>
@@ -121,6 +128,7 @@ const SecretHealthPage = () => {
                 <span className="text-xs font-medium text-primary">{typeLabel(rec.type)}</span>
                 {rec.intensity > 0 && <span className="text-xs text-muted-foreground ml-2">Intensidade: {rec.intensity}</span>}
                 {rec.bleeding && <span className="text-xs text-red-500 font-bold ml-2">⚠️ Sangramento</span>}
+                {rec.dry && <span className="text-xs text-teal-500 font-bold ml-2">🌵 Seco</span>}
               </div>
               <span className="text-[11px] text-muted-foreground">{fmtDate(rec.date)} · {rec.time}</span>
             </div>
