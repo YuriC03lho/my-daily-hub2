@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import PageHeader from "@/components/PageHeader";
 import { loadData, saveData, generateId, HealthRecord, KEYS } from "@/lib/storage";
 import { ConfirmDeleteDrawer } from "@/components/ConfirmDeleteDrawer";
+import { showNotification } from "@/lib/notifications";
 
 const TYPES: { value: HealthRecord["type"]; label: string }[] = [
   { value: "normal", label: "Normal" },
@@ -23,6 +24,27 @@ const SecretHealthPage = () => {
   const [isIdle, setIsIdle] = useState(true);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [showInactivityBanner, setShowInactivityBanner] = useState(false);
+
+  // 7-day inactivity notification
+  useEffect(() => {
+    const allRecords = loadData<HealthRecord[]>(KEYS.HEALTH, []);
+    if (allRecords.length === 0) return;
+    const latest = allRecords[0];
+    const daysDiff = Math.floor(
+      (Date.now() - new Date(latest.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (daysDiff >= 7) {
+      setShowInactivityBanner(true);
+      setTimeout(() => {
+        showNotification(
+          "PSIIUUU! 💩",
+          `Faz ${daysDiff} dias que você não registra nada... Você não caga não?`,
+          "health-inactivity"
+        );
+      }, 1500); // slight delay so the page loads first
+    }
+  }, []);
 
   // Activity detection for screensaver
   useEffect(() => {
@@ -200,6 +222,28 @@ const SecretHealthPage = () => {
         )}
       </AnimatePresence>
 
+      {/* 7-day Inactivity Banner */}
+      <AnimatePresence>
+        {showInactivityBanner && !isIdle && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-3 flex items-start gap-3"
+          >
+            <span className="text-2xl">💩</span>
+            <div className="flex-1 min-w-0">
+              <p className="font-black text-amber-800 text-sm">PSIIUUU!</p>
+              <p className="text-xs text-amber-700 font-medium mt-0.5">
+                Faz mais de 7 dias sem registrar nada... Você não caga não?
+              </p>
+            </div>
+            <button onClick={() => setShowInactivityBanner(false)} className="p-1 shrink-0">
+              <X className="w-4 h-4 text-amber-500" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex gap-2 mb-3">
         <div className="relative flex-1">

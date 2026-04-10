@@ -1,12 +1,19 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, Edit2, X, Check, Search } from "lucide-react";
+import { Plus, Trash2, Edit2, X, Check, Search, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import PageHeader from "@/components/PageHeader";
 import { loadData, saveData, generateId, AgendaItem, KEYS } from "@/lib/storage";
 import { ConfirmDeleteDrawer } from "@/components/ConfirmDeleteDrawer";
+import { AlarmOverlay } from "@/components/AlarmOverlay";
+import {
+  scheduleReminder,
+  cancelReminder,
+  scheduleAllReminders,
+  showNotification,
+} from "@/lib/notifications";
 
 const AgendaPage = () => {
   const [items, setItems] = useState<AgendaItem[]>(() => loadData(KEYS.AGENDA, []));
@@ -25,6 +32,20 @@ const AgendaPage = () => {
   const [newTopic, setNewTopic] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
+  // Active alarm item (shown in the overlay)
+  const [alarmItem, setAlarmItem] = useState<AgendaItem | null>(null);
+
+  // Callback when alarm fires — safe with useCallback so reference is stable
+  const onAlarm = useCallback((item: AgendaItem) => {
+    setAlarmItem(item);
+  }, []);
+
+  // Re-schedule all reminders when the page mounts
+  useEffect(() => {
+    scheduleAllReminders(items, onAlarm);
+    return () => {}; // timers are managed in the lib
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const saveEntries = (list: AgendaItem[]) => {
     const sorted = [...list].sort((a, b) => {
       if (a.date !== b.date) return a.date.localeCompare(b.date);
@@ -32,22 +53,11 @@ const AgendaPage = () => {
       if (a.time && !b.time) return 1;
       return (a.time || "").localeCompare(b.time || "");
     });
-    setItems(sorted); saveData(KEYS.AGENDA, sorted);
+    setItems(sorted);
+    saveData(KEYS.AGENDA, sorted);
   };
 
-  const requestNotifications = async () => {
-    const p = await Notification.requestPermission();
-    if (p === 'granted') new Notification("My Daily Hub", { body: "Notificações ativadas!" });
-  };
-
-  const testNotification = () => {
-    if (Notification.permission === 'granted') {
-      new Notification("My Daily Hub", { body: "Sua notificação está funcionando!" });
-    } else {
-      alert("Ative as notificações primeiro!");
-    }
-  };
-   const saveTopics = (list: string[]) => { setTopics(list); saveData(KEYS.AGENDA_TOPICS, list); };
+  const saveTopics = (list: string[]) => { setTopics(list); saveData(KEYS.AGENDA_TOPICS, list); };
 
   const addTopic = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -65,10 +75,21 @@ const AgendaPage = () => {
   const useTopic = (t: string) => {
     setNotes(prev => prev + (prev.trim() ? "\n" : "") + t);
   };
-  const resetForm = () => { setShowForm(false); setEditing(null); setTitle(""); setDate(new Date().toISOString().slice(0, 10)); setTime("09:00"); setHasTime(false); setNotes(""); setNewTopic(""); };
+
+  const resetForm = () => {
+    setShowForm(false); setEditing(null); setTitle("");
+    setDate(new Date().toISOString().slice(0, 10));
+    setTime("09:00"); setHasTime(false); setNotes(""); setNewTopic("");
+  };
 
   const startEdit = (item: AgendaItem) => {
-    setEditing(item); setTitle(item.title); setDate(item.date); setTime(item.time || "09:00"); setHasTime(!!item.time); setNotes(item.notes); setShowForm(true);
+    setEditing(item);
+    setTitle(item.title);
+    setDate(item.date);
+    setTime(item.time || "09:00");
+    setHasTime(!!item.time);
+    setNotes(item.notes);
+    setShowForm(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -76,15 +97,42 @@ const AgendaPage = () => {
     if (!title.trim()) return;
     const now = new Date().toISOString();
     const saveTime = hasTime ? time : "";
+    let savedItem: AgendaItem;
+
     if (editing) {
-      saveEntries(items.map(it => it.id === editing.id ? { ...it, title, date, time: saveTime, notes } : it));
+      savedItem = { ...editing, title, date, time: saveTime, notes };
+      const newList = items.map(it => it.id === editing.id ? savedItem : it);
+      saveEntries(newList);
+      // Re-schedule updated item
+      cancelReminder(editing.id);
+      if (saveTime) scheduleReminder(savedItem, onAlarm);
     } else {
-      saveEntries([...items, { id: generateId(), title, date, time: saveTime, notes, completed: false, createdAt: now }]);
+      savedItem = { id: generateId(), title, date, time: saveTime, notes, completed: false, createdAt: now };
+      const newList = [...items, savedItem];
+      saveEntries(newList);
+      // Schedule new item
+      if (saveTime) {
+        scheduleReminder(savedItem, onAlarm);
+        const eventDate = new Date(`${date}T${saveTime}:00`);
+        if (eventDate.getTime() > Date.now()) {
+          showNotification(
+            "✅ Lembrete agendado!",
+            `"${title}" às ${saveTime} em ${new Date(date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}`,
+          );
+        }
+      }
     }
     resetForm();
   };
 
-  const toggleComplete = (id: string) => saveEntries(items.map(it => it.id === id ? { ...it, completed: !it.completed } : it));
+  const toggleComplete = (id: string) => {
+    const updated = items.map(it => it.id === id ? { ...it, completed: !it.completed } : it);
+    saveEntries(updated);
+    // Cancel reminder if completed
+    const item = updated.find(it => it.id === id);
+    if (item?.completed) cancelReminder(id);
+    else if (item?.time) scheduleReminder(item, onAlarm);
+  };
 
   const filtered = useMemo(() => {
     let list = items;
@@ -99,11 +147,16 @@ const AgendaPage = () => {
 
   return (
     <div className="min-h-screen px-5 pt-14 pb-8 safe-bottom">
+      {/* Alarm overlay */}
+      <AlarmOverlay item={alarmItem} onDismiss={() => setAlarmItem(null)} />
+
       <div className="flex justify-between items-start">
         <PageHeader title="Agenda" />
         <div className="flex gap-2 mt-4">
-          <Button variant="outline" size="sm" className="h-8 text-[10px] uppercase font-bold px-3 rounded-xl border-dashed" onClick={requestNotifications}>🔔 Ativar</Button>
-          <Button variant="secondary" size="sm" className="h-8 text-[10px] uppercase font-bold px-3 rounded-xl" onClick={testNotification}>Testar</Button>
+          <div className="flex items-center gap-1.5 h-8 px-3 rounded-xl bg-primary/10 border border-primary/20 text-primary">
+            <Bell className="w-3 h-3" />
+            <span className="text-[10px] font-black uppercase tracking-wider">5min + Alarme</span>
+          </div>
         </div>
       </div>
 
@@ -136,23 +189,28 @@ const AgendaPage = () => {
                 <Input type="date" value={date} onChange={e => setDate(e.target.value)} className="flex-1" />
                 {hasTime && <Input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-28" />}
               </div>
-              <button 
+              <button
                 type="button"
                 onClick={() => setHasTime(!hasTime)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] font-bold uppercase transition-all w-fit ${hasTime ? "bg-primary/10 border-primary/20 text-primary" : "bg-secondary text-muted-foreground border-border"}`}
               >
-                {hasTime ? "✓ Com horário" : "+ Adicionar horário"}
+                {hasTime ? "✓ Com horário (lembrete automático)" : "+ Adicionar horário e lembrete"}
               </button>
+              {hasTime && (
+                <p className="text-[10px] text-primary/70 font-bold -mt-1 px-1">
+                  🔔 Aviso 5 min antes + Alarme na hora
+                </p>
+              )}
             </div>
             <Textarea placeholder="Observações" value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
-            
+
             {/* Topics Section */}
             <div className="flex flex-col gap-2 bg-secondary/30 p-3 rounded-xl">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Tópicos rápidos</span>
               <div className="flex flex-wrap gap-2">
                 {topics.map(t => (
-                  <motion.div 
-                    key={t} 
+                  <motion.div
+                    key={t}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => useTopic(t)}
                     className="flex items-center gap-1.5 bg-background border border-border px-2.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer hover:border-primary/50 transition-colors group"
@@ -165,10 +223,10 @@ const AgendaPage = () => {
                 ))}
               </div>
               <div className="flex gap-2 mt-1">
-                <Input 
-                  placeholder="Novo tópico..." 
-                  value={newTopic} 
-                  onChange={e => setNewTopic(e.target.value)} 
+                <Input
+                  placeholder="Novo tópico..."
+                  value={newTopic}
+                  onChange={e => setNewTopic(e.target.value)}
                   className="h-8 text-xs bg-background"
                   onKeyDown={e => e.key === 'Enter' && addTopic(e as any)}
                 />
@@ -198,7 +256,15 @@ const AgendaPage = () => {
               </button>
               <div className="flex-1 min-w-0">
                 <h3 className={`font-semibold text-sm ${item.completed ? "line-through" : ""}`}>{item.title}</h3>
-                <p className="text-muted-foreground text-xs">{fmtDate(item.date)} {item.time ? `· ${item.time}` : ""}</p>
+                <p className="text-muted-foreground text-xs flex items-center gap-1">
+                  {fmtDate(item.date)}
+                  {item.time && (
+                    <span className="flex items-center gap-1">
+                      · {item.time}
+                      <span className="text-[9px] text-primary font-bold bg-primary/10 px-1.5 py-0.5 rounded-full">🔔</span>
+                    </span>
+                  )}
+                </p>
                 {item.notes && <p className="text-muted-foreground text-xs mt-1 line-clamp-1">{item.notes}</p>}
               </div>
               <div className="flex gap-1 shrink-0">
@@ -214,7 +280,10 @@ const AgendaPage = () => {
       <ConfirmDeleteDrawer
         isOpen={deleteTarget !== null}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={() => saveEntries(items.filter(x => x.id !== deleteTarget))}
+        onConfirm={() => {
+          if (deleteTarget) cancelReminder(deleteTarget);
+          saveEntries(items.filter(x => x.id !== deleteTarget));
+        }}
         title="Excluir compromisso?"
         description="Essa ação não pode ser desfeita. O compromisso será removido permanentemente."
       />

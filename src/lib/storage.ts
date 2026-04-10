@@ -72,11 +72,12 @@ export const KEYS = {
   PURCHASES: 'hub_purchases',
   AGENDA: 'hub_agenda',
   HEALTH: '__sys_cache_v2',
-  FINANCES: 'hub_finances_v2', // New keyed structure
+  FINANCES: 'hub_finances_v2',
   LAST_UPDATE: 'hub_last_update',
   TOPICS: 'hub_diary_topics',
   AGENDA_TOPICS: 'hub_agenda_topics',
   HEALTH_TOPICS: 'hub_health_topics',
+  BACKUP_SNAPSHOT: 'hub_backup_snapshot',
 };
 
 // Export all data as JSON
@@ -106,6 +107,82 @@ export function importAllData(json: string): boolean {
   } catch {
     return false;
   }
+}
+
+// --- Smart Backup System ---
+
+export interface BackupSnapshot {
+  exportedAt: string; // ISO timestamp
+  version: number;
+  data: {
+    diary: any[];
+    purchases: any[];
+    agenda: any[];
+    health: any[];
+    finances: Record<string, any>;
+    lastUpdate: string;
+  };
+}
+
+// Export: saves snapshot to localStorage AND downloads a fixed-name .json file
+export function exportBackupSnapshot(): { snapshot: BackupSnapshot; json: string } {
+  const snapshot: BackupSnapshot = {
+    exportedAt: new Date().toISOString(),
+    version: 2,
+    data: {
+      diary: loadData(KEYS.DIARY, []),
+      purchases: loadData(KEYS.PURCHASES, []),
+      agenda: loadData(KEYS.AGENDA, []),
+      health: loadData(KEYS.HEALTH, []),
+      finances: loadData(KEYS.FINANCES, {}),
+      lastUpdate: loadData(KEYS.LAST_UPDATE, ''),
+    },
+  };
+  const json = JSON.stringify(snapshot, null, 2);
+  // Save internally so restore doesn't need file picker
+  saveData(KEYS.BACKUP_SNAPSHOT, snapshot);
+  return { snapshot, json };
+}
+
+// Restore: reads from internal snapshot in localStorage, validates age (max 90 days)
+export type RestoreResult =
+  | { ok: true }
+  | { ok: false; reason: 'no_backup' }
+  | { ok: false; reason: 'invalid' }
+  | { ok: false; reason: 'too_old'; exportedAt: string; daysDiff: number };
+
+export function restoreFromSnapshot(): RestoreResult {
+  try {
+    const snapshot = loadData<BackupSnapshot | null>(KEYS.BACKUP_SNAPSHOT, null);
+    if (!snapshot || !snapshot.exportedAt) {
+      return { ok: false, reason: 'no_backup' };
+    }
+    const exportedAt = new Date(snapshot.exportedAt);
+    const daysDiff = Math.floor((Date.now() - exportedAt.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysDiff > 90) {
+      return { ok: false, reason: 'too_old', exportedAt: snapshot.exportedAt, daysDiff };
+    }
+    const { data } = snapshot;
+    if (data.diary) saveData(KEYS.DIARY, data.diary);
+    if (data.purchases) saveData(KEYS.PURCHASES, data.purchases);
+    if (data.agenda) saveData(KEYS.AGENDA, data.agenda);
+    if (data.health) saveData(KEYS.HEALTH, data.health);
+    if (data.finances) saveData(KEYS.FINANCES, data.finances);
+    if (data.lastUpdate) saveData(KEYS.LAST_UPDATE, data.lastUpdate);
+    // Update backup timestamp
+    exportBackupSnapshot();
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: 'invalid' };
+  }
+}
+
+// Check if a backup snapshot exists and how old it is
+export function getBackupInfo(): { exists: boolean; exportedAt?: string; daysDiff?: number } {
+  const snapshot = loadData<BackupSnapshot | null>(KEYS.BACKUP_SNAPSHOT, null);
+  if (!snapshot?.exportedAt) return { exists: false };
+  const daysDiff = Math.floor((Date.now() - new Date(snapshot.exportedAt).getTime()) / (1000 * 60 * 60 * 24));
+  return { exists: true, exportedAt: snapshot.exportedAt, daysDiff };
 }
 
 // Seed purchases from Excel data (only if empty)
