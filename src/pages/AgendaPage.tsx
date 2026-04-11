@@ -59,8 +59,8 @@ const AgendaPage = () => {
 
   const saveTopics = (list: string[]) => { setTopics(list); saveData(KEYS.AGENDA_TOPICS, list); };
 
-  const addTopic = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const addTopic = (e?: React.FormEvent | React.KeyboardEvent) => {
+    if (e) e.preventDefault();
     if (!newTopic.trim()) return;
     if (topics.includes(newTopic.trim())) return;
     saveTopics([...topics, newTopic.trim()]);
@@ -72,7 +72,7 @@ const AgendaPage = () => {
     saveTopics(topics.filter(x => x !== t));
   };
 
-  const useTopic = (t: string) => {
+  const handleUseTopic = (t: string) => {
     setNotes(prev => prev + (prev.trim() ? "\n" : "") + t);
   };
 
@@ -212,7 +212,7 @@ const AgendaPage = () => {
                   <motion.div
                     key={t}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => useTopic(t)}
+                    onClick={() => handleUseTopic(t)}
                     className="flex items-center gap-1.5 bg-background border border-border px-2.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer hover:border-primary/50 transition-colors group"
                   >
                     <span>{t}</span>
@@ -228,7 +228,7 @@ const AgendaPage = () => {
                   value={newTopic}
                   onChange={e => setNewTopic(e.target.value)}
                   className="h-8 text-xs bg-background"
-                  onKeyDown={e => e.key === 'Enter' && addTopic(e as any)}
+                  onKeyDown={e => e.key === 'Enter' && addTopic(e)}
                 />
                 <Button type="button" size="icon" className="h-8 w-8 shrink-0" onClick={addTopic}>
                   <Plus className="w-4 h-4" />

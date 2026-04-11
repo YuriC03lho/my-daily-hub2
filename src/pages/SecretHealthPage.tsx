@@ -48,9 +48,9 @@ const SecretHealthPage = () => {
 
   // Activity detection for screensaver
   useEffect(() => {
-    let idleTimer: any;
-    let countdownInterval: any;
-    let warningTimer: any;
+    let idleTimer: ReturnType<typeof setTimeout>;
+    let countdownInterval: ReturnType<typeof setInterval>;
+    let warningTimer: ReturnType<typeof setTimeout>;
 
     const handleActivity = () => {
       setIsIdle(false);

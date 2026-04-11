@@ -11,25 +11,29 @@ import HistoryPage from "./pages/HistoryPage";
 import SecretHealthPage from "./pages/SecretHealthPage";
 import NotFound from "./pages/NotFound";
 
+import { ThemeProvider } from "./hooks/useTheme";
+
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/diary" element={<DiaryPage />} />
-          <Route path="/shopping" element={<ShoppingPage />} />
-          <Route path="/agenda" element={<AgendaPage />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/s-area" element={<SecretHealthPage />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/diary" element={<DiaryPage />} />
+            <Route path="/shopping" element={<ShoppingPage />} />
+            <Route path="/agenda" element={<AgendaPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/s-area" element={<SecretHealthPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

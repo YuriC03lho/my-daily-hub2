@@ -32,6 +32,8 @@ const ShoppingPage = () => {
   const [purchaseDate, setPurchaseDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [recipient, setRecipient] = useState<string>("Para mim");
   const [notes, setNotes] = useState("");
+  const [installments, setInstallments] = useState(1);
+  const [calcMode, setCalcMode] = useState<"total" | "parcela">("parcela");
 
   const save = (list: Purchase[]) => { setItems(list); saveData(KEYS.PURCHASES, list); };
 
@@ -49,6 +51,7 @@ const ShoppingPage = () => {
   const resetForm = () => {
     setShowForm(false); setEditing(null);
     setProductName(""); setStore("Shopee"); setValue(""); setPurchaseDate(new Date().toISOString().slice(0, 10)); setNotes(""); setRecipient("Para mim");
+    setInstallments(1); setCalcMode("parcela");
   };
 
   const startEdit = (p: Purchase) => {
@@ -66,10 +69,37 @@ const ShoppingPage = () => {
     if (!productName.trim()) return;
     const now = new Date().toISOString();
     const val = parseFloat(value) || 0;
+    
     if (editing) {
       save(items.map(it => it.id === editing.id ? { ...it, productName, store, value: val, purchaseDate, notes, recipient } : it));
     } else {
-      save([{ id: generateId(), productName, store, value: val, purchaseDate, status: "comprado", paid: false, notes, recipient, createdAt: now, month: fmtMonthLabel(purchaseDate) }, ...items]);
+      if (installments > 1) {
+        const generated: Purchase[] = [];
+        const baseDate = new Date(purchaseDate + "T12:00:00");
+        const perInstallmentValue = calcMode === "total" ? val / installments : val;
+
+        for (let i = 1; i <= installments; i++) {
+          const d = new Date(baseDate);
+          d.setMonth(baseDate.getMonth() + (i - 1));
+          const dateStr = d.toISOString().slice(0, 10);
+          generated.push({
+            id: generateId(),
+            productName: `${productName} (${i}/${installments})`,
+            store,
+            value: perInstallmentValue,
+            purchaseDate: dateStr,
+            status: "comprado",
+            paid: false,
+            notes,
+            recipient,
+            createdAt: now,
+            month: fmtMonthLabel(dateStr)
+          });
+        }
+        save([...generated, ...items]);
+      } else {
+        save([{ id: generateId(), productName, store, value: val, purchaseDate, status: "comprado", paid: false, notes, recipient, createdAt: now, month: fmtMonthLabel(purchaseDate) }, ...items]);
+      }
     }
     saveData(KEYS.LAST_UPDATE, now);
     resetForm();
@@ -166,10 +196,10 @@ const ShoppingPage = () => {
         ))}
       </div>
        {/* Financial Overview Card */}
-      <div className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-[2.5rem] p-5 mb-6 text-white shadow-xl shadow-teal-900/10 transition-all">
+      <div className="bg-primary rounded-[2.5rem] p-5 mb-6 text-primary-foreground shadow-xl transition-all dashboard-card">
         <div className="flex items-center justify-between mb-4">
           <div className="flex flex-col">
-            <span className="text-teal-100 text-[10px] font-bold uppercase tracking-widest mb-1">Pagamento (5º Útil)</span>
+            <span className="opacity-70 text-[10px] font-bold uppercase tracking-widest mb-1">Pagamento (5º Útil)</span>
             <span className="text-2xl font-black">{payday}</span>
           </div>
           <div className="flex flex-col items-end">
@@ -177,21 +207,21 @@ const ShoppingPage = () => {
               onClick={() => setShowSalary(!showSalary)} 
               className="flex flex-col items-end gap-0.5 bg-white/20 backdrop-blur-md px-4 py-2 rounded-2xl text-[9px] font-black tracking-widest hover:bg-white/30 transition-all border border-white/10 group mb-1"
             >
-              <span className="text-teal-100 flex items-center gap-1">RENDIMENTOS <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${showSalary ? "rotate-180" : ""}`} /></span>
-              <span className="text-white text-[11px]">{fmtMonthLabel(activeMonthKey + "-01")}</span>
+              <span className="opacity-80 flex items-center gap-1 uppercase">RENDIMENTOS <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${showSalary ? "rotate-180" : ""}`} /></span>
+              <span className="text-[11px]">{fmtMonthLabel(activeMonthKey + "-01")}</span>
             </button>
             <div className="text-right">
-              <span className="text-[10px] text-teal-100 uppercase font-bold tracking-widest block mb-0.5">Saldo Líquido</span>
-              <span className="text-lg font-black opacity-80">R$ {totalIncome.toFixed(2)}</span>
+              <span className="text-[10px] opacity-70 uppercase font-bold tracking-widest block mb-0.5">Saldo Líquido</span>
+              <span className="text-lg font-black opacity-90">R$ {totalIncome.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
         {showSalary && (
-          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col gap-4 mb-5 p-5 bg-white/10 rounded-3xl border border-white/20 backdrop-blur-sm">
+          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col gap-4 mb-5 p-5 bg-black/10 rounded-3xl border border-white/10 backdrop-blur-sm">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-black text-teal-100 tracking-widest ml-1 block">Salário Base</label>
+                <label className="text-[10px] uppercase font-black opacity-70 tracking-widest ml-1 block">Salário Base</label>
                 <div className="relative">
                   <Input 
                     type="number" 
@@ -199,11 +229,11 @@ const ShoppingPage = () => {
                     onChange={e => updateFinance({ salary: e.target.value === "" ? 0 : Number(e.target.value) })} 
                     className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 text-sm rounded-xl focus:bg-white/20 pl-8" 
                   />
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-100 text-[10px] font-bold">R$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-70 text-[10px] font-bold">R$</span>
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-black text-teal-100 tracking-widest ml-1 block">Renda Extra</label>
+                <label className="text-[10px] uppercase font-black opacity-70 tracking-widest ml-1 block">Renda Extra</label>
                 <div className="relative">
                   <Input 
                     type="number" 
@@ -211,14 +241,14 @@ const ShoppingPage = () => {
                     onChange={e => updateFinance({ extra: e.target.value === "" ? 0 : Number(e.target.value) })} 
                     className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 text-sm rounded-xl focus:bg-white/20 pl-8" 
                   />
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-100 text-[10px] font-bold">R$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-70 text-[10px] font-bold">R$</span>
                 </div>
               </div>
             </div>
             
             <div className="flex items-center justify-between gap-6 pt-4 border-t border-white/10">
               <div className="flex-1 space-y-1.5">
-                <label className="text-[10px] uppercase font-black text-teal-100 tracking-widest ml-1 block">Valor das Férias</label>
+                <label className="text-[10px] uppercase font-black opacity-70 tracking-widest ml-1 block">Valor das Férias</label>
                 <div className="relative">
                   <Input 
                     type="number" 
@@ -226,11 +256,11 @@ const ShoppingPage = () => {
                     onChange={e => updateFinance({ vacation: e.target.value === "" ? 0 : Number(e.target.value) })} 
                     className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 text-sm rounded-xl focus:bg-white/20 pl-8" 
                   />
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-100 text-[10px] font-bold">R$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 opacity-70 text-[10px] font-bold">R$</span>
                 </div>
               </div>
               <div className="flex flex-col items-center gap-2">
-                <span className="text-[9px] uppercase font-black text-teal-100 tracking-widest">Estou de Férias?</span>
+                <span className="text-[9px] uppercase font-black opacity-70 tracking-widest">Estou de Férias?</span>
                 <button 
                   onClick={() => updateFinance({ isOnVacation: !currentFinance.isOnVacation })}
                   className={`w-16 h-8 rounded-full transition-all relative shadow-inner ${currentFinance.isOnVacation ? "bg-white" : "bg-black/20"}`}
@@ -244,12 +274,12 @@ const ShoppingPage = () => {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white/15 p-3.5 rounded-3xl border border-white/10 backdrop-blur-sm">
-            <span className="text-teal-100 block text-[9px] uppercase font-black mb-1 tracking-widest">A Pagar</span>
-            <span className="font-extrabold text-lg text-red-100">R$ {totalUnpaid.toFixed(2)}</span>
+            <span className="opacity-70 block text-[9px] uppercase font-black mb-1 tracking-widest">A Pagar</span>
+            <span className="font-extrabold text-lg">R$ {totalUnpaid.toFixed(2)}</span>
           </div>
           <div className="bg-white/15 p-3.5 rounded-3xl border border-white/10 backdrop-blur-sm">
-            <span className="text-teal-100 block text-[9px] uppercase font-black mb-1 tracking-widest">Sobra Livre</span>
-            <span className={`font-extrabold text-lg ${remaining >= 0 ? "text-white" : "text-orange-200"}`}>R$ {remaining.toFixed(2)}</span>
+            <span className="opacity-70 block text-[9px] uppercase font-black mb-1 tracking-widest">Sobra Livre</span>
+            <span className={`font-extrabold text-lg ${remaining >= 0 ? "" : "text-orange-200"}`}>R$ {remaining.toFixed(2)}</span>
           </div>
         </div>
       </div>
@@ -277,6 +307,29 @@ const ShoppingPage = () => {
               </div>
               <Input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} required className="h-12 rounded-2xl border-slate-200" /> 
             </div>
+
+            {!editing && (
+              <div className="bg-slate-50 p-4 rounded-3xl border border-dashed border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] uppercase font-black text-slate-400 tracking-widest leading-none">Parcelamento</label>
+                  <div className="flex bg-white rounded-xl p-1 border border-slate-100 shadow-sm">
+                    <button type="button" onClick={() => setCalcMode("parcela")} className={`px-3 py-1.5 text-[9px] font-black rounded-lg transition-all ${calcMode === "parcela" ? "bg-slate-900 text-white shadow-md" : "text-slate-400 hover:text-slate-600"}`}>VALOR PARCELA</button>
+                    <button type="button" onClick={() => setCalcMode("total")} className={`px-3 py-1.5 text-[9px] font-black rounded-lg transition-all ${calcMode === "total" ? "bg-slate-900 text-white shadow-md" : "text-slate-400 hover:text-slate-600"}`}>DIVIDIR TOTAL</button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Input 
+                    type="number" 
+                    min="1" 
+                    max="60" 
+                    value={installments} 
+                    onChange={e => setInstallments(Number(e.target.value))} 
+                    className="h-11 w-24 rounded-xl border-slate-200 font-bold text-center"
+                  />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase italic">repetir por {installments} meses</span>
+                </div>
+              </div>
+            )}
 
             <div className="pt-1">
               <label className="text-[10px] uppercase font-black text-slate-400 ml-1 mb-2 block tracking-widest">Para quem?</label>

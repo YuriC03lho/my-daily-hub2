@@ -115,11 +115,11 @@ export interface BackupSnapshot {
   exportedAt: string; // ISO timestamp
   version: number;
   data: {
-    diary: any[];
-    purchases: any[];
-    agenda: any[];
-    health: any[];
-    finances: Record<string, any>;
+    diary: DiaryEntry[];
+    purchases: Purchase[];
+    agenda: AgendaItem[];
+    health: HealthRecord[];
+    finances: Record<string, unknown>;
     lastUpdate: string;
   };
 }
