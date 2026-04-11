@@ -1,8 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BookOpen, ShoppingCart, Calendar, Clock, Heart, User, Download, Upload, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { BookOpen, ShoppingCart, Calendar, Clock, Heart, User, Download, Upload, AlertTriangle, CheckCircle2, History } from "lucide-react";
 import { useRef, useCallback, useState, useEffect } from "react";
 import SecretAccessDialog from "@/components/SecretAccessDialog";
+import { ChangelogDrawer } from "@/components/ChangelogDrawer";
 import {
   exportBackupSnapshot,
   restoreFromSnapshot,
@@ -26,6 +27,7 @@ const Index = () => {
   const tapTimer = useRef<ReturnType<typeof setTimeout>>();
   const [showSecret, setShowSecret] = useState(false);
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
   const lastUpdate = loadData<string>(KEYS.LAST_UPDATE, "").split('T')[0]?.split('-').reverse().join('/') || "—";
   const backupInfo = getBackupInfo();
 
@@ -90,21 +92,31 @@ const Index = () => {
     <div className="min-h-screen flex flex-col safe-bottom">
       {/* Header banner - triple tap area */}
       <div
-        className="bg-gradient-to-br from-teal-500 to-teal-600 px-5 pt-12 pb-8 rounded-b-3xl shadow-lg shadow-teal-500/10"
-        onClick={handleTripleTap}
-        onTouchStart={handleTripleTap}
+        className="bg-gradient-to-br from-teal-500 to-teal-600 px-5 pt-12 pb-8 rounded-b-3xl shadow-lg shadow-teal-500/10 relative"
       >
-        <div className="flex items-center gap-3 mb-1 pointer-events-none">
-          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-            <User className="w-5 h-5 text-white" />
+        <div className="flex items-center justify-between">
+          <div 
+            className="flex items-center gap-3 mb-1 cursor-pointer active:scale-95 transition-transform"
+            onClick={handleTripleTap}
+          >
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+              <User className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-white tracking-tight">Meu Espaço</h1>
+              <p className="text-teal-100 text-xs">Seu hub pessoal de bem-estar</p>
+              {lastUpdate !== "—" && (
+                <p className="text-[10px] text-teal-200/80 mt-1">Atualizado em: {lastUpdate}</p>
+              )}
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-white tracking-tight">Meu Espaço</h1>
-            <p className="text-teal-100 text-xs">Seu hub pessoal de bem-estar</p>
-            {lastUpdate !== "—" && (
-              <p className="text-[10px] text-teal-200/80 mt-1">Atualizado em: {lastUpdate}</p>
-            )}
-          </div>
+
+          <button 
+            onClick={() => setShowChangelog(true)}
+            className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center active:scale-90 transition-transform"
+          >
+            <History className="w-5 h-5 text-white" />
+          </button>
         </div>
       </div>
 
@@ -188,6 +200,7 @@ const Index = () => {
       </div>
 
       <SecretAccessDialog open={showSecret} onOpenChange={setShowSecret} />
+      <ChangelogDrawer isOpen={showChangelog} onClose={() => setShowChangelog(false)} />
 
       {/* Restore confirmation drawer */}
       {showRestoreConfirm && (
