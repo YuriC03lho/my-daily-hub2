@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CheckCircle2, MinusCircle, PlusCircle, Rocket, History, Sparkles } from "lucide-react";
+import { X, CheckCircle2, MinusCircle, PlusCircle, Rocket, History, Sparkles, Clock } from "lucide-react";
 
 interface ChangelogDrawerProps {
   isOpen: boolean;
@@ -9,21 +9,37 @@ interface ChangelogDrawerProps {
 
 const versions = [
   {
+    tag: "v2.2",
+    title: "Smart Hub & Log 🕒",
+    date: "Hoje",
+    time: "21:05",
+    isMajor: false,
+    items: [
+      { type: "add", text: "Log de Versões Visual (este menu!)" },
+      { type: "add", text: "Backup Inteligente (Snapshot interno - adeus busca de arquivos!)" },
+      { type: "add", text: "Trava de Segurança no Restore (máximo 90 dias)" },
+      { type: "add", text: "Guia de Instalação Mobile consolidado" },
+    ],
+  },
+  {
     tag: "v2.1",
-    title: "Mobile Plus 🚀",
-    date: "Atual",
+    title: "Mobile Plus (Alarme) 🔔",
+    date: "Hoje",
+    time: "20:15",
+    isMajor: false,
     items: [
       { type: "add", text: "Alarmes Nativos (Aviso 5min + Alarme sonoro)" },
       { type: "add", text: "Alarme Visual Full-Screen com vibração visual" },
       { type: "add", text: "Notificação de Inatividade na Saúde (Lembrete 7 dias)" },
-      { type: "add", text: "Backup Inteligente (Snapshot interno - adeus busca de arquivos!)" },
-      { type: "add", text: "Trava de Segurança no Restore (máximo 90 dias)" },
+      { type: "add", text: "Som de Alarme via AudioContext" },
     ],
   },
   {
     tag: "v2.0",
-    title: "Mobile Native 📱",
-    date: "Abril 2026",
+    title: "Mobile Native UI 📱",
+    date: "Hoje",
+    time: "18:40",
+    isMajor: true,
     items: [
       { type: "add", text: "ConfirmDeleteDrawer customizado (Premium UI)" },
       { type: "add", text: "UX otimizado para toque (Touch Targets 64px)" },
@@ -33,8 +49,10 @@ const versions = [
   },
   {
     tag: "v1.0",
-    title: "Lançamento PWA",
+    title: "Lançamento Base 🚀",
     date: "Março 2026",
+    time: "15:00",
+    isMajor: true,
     items: [
       { type: "add", text: "Módulos: Agenda, Compras, Diário e Histórico" },
       { type: "add", text: "Persistência Local (LocalStorage)" },
@@ -69,7 +87,7 @@ export function ChangelogDrawer({ isOpen, onClose }: ChangelogDrawerProps) {
                 </div>
                 <div>
                   <h2 className="text-lg font-black leading-tight">Notas de Atualização</h2>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">O que mudou no Hub</p>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Histórico detalhado</p>
                 </div>
               </div>
               <button 
@@ -95,8 +113,10 @@ export function ChangelogDrawer({ isOpen, onClose }: ChangelogDrawerProps) {
                     }`}>
                       {idx === 0 ? (
                         <Sparkles className="w-5 h-5 text-white" />
-                      ) : (
+                      ) : ver.isMajor ? (
                         <Rocket className="w-5 h-5 text-muted-foreground" />
+                      ) : (
+                        <CheckCircle2 className="w-5 h-5 text-muted-foreground" />
                       )}
                     </div>
 
@@ -109,9 +129,16 @@ export function ChangelogDrawer({ isOpen, onClose }: ChangelogDrawerProps) {
                           {ver.tag}
                         </span>
                       </div>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">
-                        {ver.date}
-                      </p>
+                      <div className="flex items-center gap-2 mb-4">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                          {ver.date}
+                        </p>
+                        <div className="w-1 h-1 rounded-full bg-border" />
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-teal-600/70">
+                          <Clock className="w-3 h-3" />
+                          {ver.time}
+                        </div>
+                      </div>
 
                       <ul className="space-y-3">
                         {ver.items.map((item, i) => (
